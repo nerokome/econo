@@ -1,0 +1,29 @@
+# Environment variables
+.env
+
+# Go build output
+/bin/
+/build/
+/dist/
+
+# Go cache
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
