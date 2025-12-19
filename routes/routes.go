@@ -30,8 +30,7 @@ func UserRoutes(router *gin.Engine, app *controllers.Application) {
 
 		// Address
 		protected.POST("/address", app.AddAddress())
-		protected.PUT("/address/home/:address_id", app.EditHomeAddress())
-		protected.PUT("/address/work/:address_id", app.EditWorkAddress())
+		protected.PUT("/address/:address_id", app.EditAddress())
 		protected.DELETE("/address/:address_id", app.DeleteAddress())
 	}
 
@@ -41,7 +40,6 @@ func UserRoutes(router *gin.Engine, app *controllers.Application) {
 	// TODO: Add role-based middleware here to allow only admins
 	{
 		admin.POST("/addproducts", app.ProductViewerAdmin())
-		admin.PUT("/products/:product_id", app.EditProduct())
-		admin.DELETE("/products/:product_id", app.DeleteProduct())
+
 	}
 }

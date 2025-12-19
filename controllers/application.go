@@ -1,16 +1,26 @@
 package controllers
 
-import "go.mongodb.org/mongo-driver/mongo"
+import (
+	"go.mongodb.org/mongo-driver/mongo"
+)
 
-// Application is shared across all controllers
+// Application holds all shared dependencies for controllers
 type Application struct {
-	ProdCollection *mongo.Collection
 	UserCollection *mongo.Collection
+	ProdCollection *mongo.Collection
+	// Future-proofing:
+	// TokenService TokenService
+	// Logger       *zap.Logger
+	// Config       *config.Config
 }
 
-func NewApplication(prodColl, userColl *mongo.Collection) *Application {
+// NewApplication wires dependencies once at startup
+func NewApplication(
+	userColl *mongo.Collection,
+	prodColl *mongo.Collection,
+) *Application {
 	return &Application{
-		ProdCollection: prodColl,
 		UserCollection: userColl,
+		ProdCollection: prodColl,
 	}
 }

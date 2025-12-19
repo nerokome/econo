@@ -6,19 +6,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nerokome/econo/database"
 	"github.com/nerokome/econo/models"
-
-	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var validate = validator.New()
-
-// HashPassword hashes a plain-text password
 func HashPassword(password string) string {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -27,30 +21,25 @@ func HashPassword(password string) string {
 	return string(hashed)
 }
 
-// VerifyPassword compares stored hash with incoming password
-func VerifyPassword(hashedPassword string, plainPassword string) bool {
-	err := bcrypt.CompareHashAndPassword(
+func VerifyPassword(hashedPassword, plainPassword string) bool {
+	return bcrypt.CompareHashAndPassword(
 		[]byte(hashedPassword),
 		[]byte(plainPassword),
-	)
-	return err == nil
+	) == nil
 }
 
-// SIGN UP
-func SignUp() gin.HandlerFunc {
+func (app *Application) SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		var user models.User
-
 		if err := c.ShouldBindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// basic validation (email & password should not be empty)
 		if user.Email == "" || user.Password == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "email and password are required",
@@ -58,10 +47,7 @@ func SignUp() gin.HandlerFunc {
 			return
 		}
 
-		collection := database.UserData(database.Client, "Users")
-
-		// check email uniqueness
-		count, err := collection.CountDocuments(ctx, bson.M{"email": user.Email})
+		count, err := app.UserCollection.CountDocuments(ctx, bson.M{"email": user.Email})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 			return
@@ -71,10 +57,7 @@ func SignUp() gin.HandlerFunc {
 			return
 		}
 
-		// hash password
 		user.Password = HashPassword(user.Password)
-
-		// metadata
 		user.ID = primitive.NewObjectID()
 		user.UserID = user.ID.Hex()
 		user.CreatedAt = time.Now()
@@ -86,8 +69,7 @@ func SignUp() gin.HandlerFunc {
 		user.AddressDetails = []models.Address{}
 		user.OrderStatus = []models.Order{}
 
-		_, err = collection.InsertOne(ctx, user)
-		if err != nil {
+		if _, err := app.UserCollection.InsertOne(ctx, user); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user creation failed"})
 			return
 		}
@@ -98,53 +80,38 @@ func SignUp() gin.HandlerFunc {
 	}
 }
 
-// LOGIN
-func Login() gin.HandlerFunc {
+func (app *Application) Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		var loginData struct {
+		var creds struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
 
-		var foundUser models.User
-
-		if err := c.ShouldBindJSON(&loginData); err != nil {
+		if err := c.ShouldBindJSON(&creds); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		collection := database.UserData(database.Client, "Users")
-
-		err := collection.
-			FindOne(ctx, bson.M{"email": loginData.Email}).
-			Decode(&foundUser)
-
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
-			return
-		}
-
-		if !VerifyPassword(foundUser.Password, loginData.Password) {
+		var user models.User
+		err := app.UserCollection.FindOne(ctx, bson.M{"email": creds.Email}).Decode(&user)
+		if err != nil || !VerifyPassword(user.Password, creds.Password) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "login successful",
-			"user":    foundUser,
+			"user":    user,
 		})
 	}
 }
-
-// STUBS (compile-safe)
-
-// ProductViewerAdmin returns all products for admin view
 func (app *Application) ProductViewerAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -164,10 +131,9 @@ func (app *Application) ProductViewerAdmin() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"products": products})
 	}
 }
-
-// SearchProduct returns all products (public)
 func (app *Application) SearchProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -178,7 +144,7 @@ func (app *Application) SearchProduct() gin.HandlerFunc {
 		}
 		defer cursor.Close(ctx)
 
-		var products []models.ProductUser // public view can hide internal fields
+		var products []models.ProductUser
 		for cursor.Next(ctx) {
 			var p models.Product
 			if err := cursor.Decode(&p); err != nil {
@@ -196,10 +162,9 @@ func (app *Application) SearchProduct() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"products": products})
 	}
 }
-
-// SearchProductByQuery searches products by name query
 func (app *Application) SearchProductByQuery() gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		query := c.Query("q")
 		if query == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "query param 'q' is required"})
@@ -209,7 +174,9 @@ func (app *Application) SearchProductByQuery() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		filter := bson.M{"product_name": bson.M{"$regex": query, "$options": "i"}}
+		filter := bson.M{
+			"name": bson.M{"$regex": query, "$options": "i"},
+		}
 
 		cursor, err := app.ProdCollection.Find(ctx, filter)
 		if err != nil {
@@ -236,4 +203,3 @@ func (app *Application) SearchProductByQuery() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"products": products})
 	}
 }
-

@@ -4,32 +4,35 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func DBSet() *mongo.Client {
-	clientOptions := options.Client().ApplyURI(
-		"mongodb+srv://econo:<PASSWORD>@cluster0.ytgn3.mongodb.net/econo?retryWrites=true&w=majority",
-	)
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system env variables")
+	}
 
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	if err != nil {
-		log.Fatal(err)
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		log.Fatal("MONGO_URI is not set in environment")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err = client.Connect(ctx)
+	clientOptions := options.Client().ApplyURI(mongoURI)
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Mongo Connect error:", err)
 	}
 
-	// Test the connection
-	err = client.Ping(context.TODO(), nil)
+	err = client.Ping(ctx, nil)
 	if err != nil {
 		log.Fatal("Could not connect to MongoDB:", err)
 	}
@@ -38,15 +41,6 @@ func DBSet() *mongo.Client {
 	return client
 }
 
-var Client *mongo.Client = DBSet()
-
-func UserData(client *mongo.Client, collectionName string) *mongo.Collection {
-	var collection *mongo.Collection = client.Database("econo").Collection(collectionName)
-	return collection
-
-}
-
-func ProductData(client *mongo.Client, collectionName string) *mongo.Collection {
-	var collection *mongo.Collection = client.Database("econo").Collection(collectionName)
-	return collection
+func Collection(client *mongo.Client, name string) *mongo.Collection {
+	return client.Database("econo").Collection(name)
 }
