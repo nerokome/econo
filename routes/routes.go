@@ -9,7 +9,7 @@ import (
 // UserRoutes registers all routes for the app
 func UserRoutes(router *gin.Engine, app *controllers.Application) {
 
-	// Public routes (no authentication)
+	// Public routes 
 	public := router.Group("/api")
 	{
 		public.POST("/users/signup", app.SignUp())
@@ -18,7 +18,7 @@ func UserRoutes(router *gin.Engine, app *controllers.Application) {
 		public.GET("/users/search", app.SearchProductByQuery())
 	}
 
-	// Protected routes (require JWT)
+	// Protected routes 
 	protected := router.Group("/api")
 	protected.Use(middleware.Authenticate())
 	{
@@ -34,10 +34,10 @@ func UserRoutes(router *gin.Engine, app *controllers.Application) {
 		protected.DELETE("/address/:address_id", app.DeleteAddress())
 	}
 
-	// Admin routes (require JWT + role check)
+	// Admin routes
 	admin := router.Group("/admin")
 	admin.Use(middleware.Authenticate())
-	// TODO: Add role-based middleware here to allow only admins
+	
 	{
 		admin.POST("/addproducts", app.ProductViewerAdmin())
 

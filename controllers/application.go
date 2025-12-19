@@ -8,13 +8,8 @@ import (
 type Application struct {
 	UserCollection *mongo.Collection
 	ProdCollection *mongo.Collection
-	// Future-proofing:
-	// TokenService TokenService
-	// Logger       *zap.Logger
-	// Config       *config.Config
 }
 
-// NewApplication wires dependencies once at startup
 func NewApplication(
 	userColl *mongo.Collection,
 	prodColl *mongo.Collection,

@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	// Load .env variables
+	
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using system environment")
 	}
@@ -22,10 +22,10 @@ func main() {
 		port = "8000"
 	}
 
-	// DB
+	
 	client := database.DBSet()
 
-	// Application
+	
 	app := controllers.NewApplication(
 		database.Collection(client, "products"),
 		database.Collection(client, "users"),
@@ -34,7 +34,7 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
-	// Routes
+	
 	routes.UserRoutes(router, app)
 
 	log.Fatal(router.Run(":" + port))
